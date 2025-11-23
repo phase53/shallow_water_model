@@ -1,0 +1,101 @@
+\documentclass[dvipdfmx,uplatex]{jsarticle}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage[binary-units=trues]{siunitx}
+\usepackage{latexsym}
+\usepackage{ulem}
+\usepackage{bm}
+\usepackage{here}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{physics}
+\usepackage{color}
+ \usepackage[many]{tcolorbox}
+ \usepackage{adjustbox}
+ \usepackage {tablefootnote}
+ \pagestyle{headings}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+\renewcommand{\Re}{\operatorname{Re}}
+\renewcommand{\Im}{\operatorname{Im}}
+\makeatletter
+\renewcommand{\@cite}[1]{\textsuperscript{#1)}}
+\renewcommand{\@biblabel}[1]{#1)}
+ \renewcommand{\thefootnote}{\arabic{footnote}}
+\makeatother
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\title{}
+\author{}
+\date{}
+\begin{document}
+%\maketitle
+\section{支配方程式}
+支配方程式は以下のとおりである．
+\begin{eqnarray}
+\label{zeta} \cfrac{\partial q}{\partial t}&=&-\cfrac{\partial (uq)}{\cos{\phi}\partial\lambda}-\cfrac{\partial (vq\cos{\phi})}{\cos{\phi}\partial\phi} \\
+\label{div} \cfrac{\partial D}{\partial t}&=&\cfrac{\partial (vq)}{\cos{\phi}\partial\lambda}-\cfrac{\partial (uq\cos{\phi})}{\cos{\phi}\partial\phi}-\nabla^2(E+h) \\
+\label{depth} \cfrac{\partial h}{\partial t}&=&-\cfrac{\partial (hu)}{\cos{\phi}\partial\lambda}-\cfrac{\partial (hv\cos{\phi})}{\cos{\phi}\partial\phi} 
+\end{eqnarray}
+ここで，各記号は次の意味を持つ．
+\begin{table}[h]\centering
+\begin{tabular}{cc}
+記号 & 変数  \\ \hline
+$\lambda$ & 経度 \\
+$\phi$ & 緯度 \\
+$t$ & 時間 \\
+$u$ & 経度方向の流速 \\
+$v$ & 緯度方向の流速 \\
+$D$ & 発散 \\
+$q$ & 相対渦度 \\
+ $h$ &  水深 \\ \hline
+\end{tabular}
+\end{table}
+\section{モデルの設定・使い方}
+\subsection{前提}
+本モデルはISPACK-3.2.2を使用しているため，Makefile内のLIBSに，コンパイルしたISPACKの場所を指定してあげる必要がある．コンパイラの指定は同ファイル内のFCで行うが，gfortran以外の動作は未検証である．またopenMPも前提としている．\\
+\indent 波数空間への変換は三角切断を前提としている．時間積分には散逸項を除いて4次のRunge-Kutta法を用いていて，散逸項は解核行列を用いて計算している．\\
+\indent 本モデルをそのまま用いる場合は散逸項として粘性項(式(\ref{zeta}),(\ref{div}),(\ref{depth})の右辺に加わる)が計算に含まれている，必要ない場合はmain.f90に含まれるサブルーチンMKRSLVにおいて，配列RSLVNTの全成分に$1.\_ 8$を入れればよい．
+\subsection{各変数について}
+その他，モデルの設定の中でユーザーが操作する必要があるものは全てf90/main.f90最上部のグローバル変数モジュール内にまとまっている．下の表ははそれらのうち，特に変更を要するものを挙げたものである．
+\begin{table}[h]\centering
+\begin{tabular}{ccc}
+型 & 変数名 & 意味  \\ \hline
+CHARACTER(128) & DATPAS & データディレクトリパスの場所 \\
+CHARACTER(128) & FNZETS & 渦度場の出力ファイルの名前  \\
+CHARACTER(128) & FNDIVS & 発散場のの出力ファイルの名前  \\
+CHARACTER(128) & FNDPHS & 水深場の出力ファイルの名前  \\
+CHARACTER(128) & INZETS & 渦度場の入力ファイルの名前  \\
+CHARACTER(128) & INDIVS & 発散場のの入力ファイルの名前  \\
+CHARACTER(128) & INDPHS & 水深場の入力ファイルの名前  \\
+LOGICAL & RD & 入力ファイルを設定したとき.TRUE.とする\tablefootnote{.FALSE.の場合は自動的のモデル内のMKINITによって与えられるガウシアン状の水深の場が初期値になる}  \\
+INTEGER(8) & SSTEP & 計算の開始日\\
+INTEGER(8) & JM & 緯度方向の格子点数 \\
+INTEGER(8) & IM & 経度方向の格子点数 \\
+INTEGER(8) & NN & 切断波数 \\
+INTEGER(8) & DAY & 計算日数 \\
+INTEGER(8) & DAYSTP & １日あたりの計算ステップ数\tablefootnote{時間ステップ幅はこれの逆数になるので，CFL条件に注意} \\
+REAL(8) & VSCSTY & 粘性係数\tablefootnote{変える必要があるのは時定数(デフォルトは1/10なのでその逆数で分子に10がかかっている部分)} \\
+\end{tabular}
+\end{table}
+また，出力されるファイルは波数空間(つまり，球面調和関数展開の展開係数が入っている．配列の並びなどはISPACKマニュアルを参照)のものである，これを図示などのために物理空間に変換するには，別ファイルとして用意されているconv.f90を用いれば良いが，conv.f90内にも上の表の変数がいくつか含まれるため注意．入力するファイルもISPACKに準拠した波数空間のデータである必要があり，作成にはISPACKを用いるのが早いと思う．\\
+\indent これらを設定した後は，f90ディレクトリ内でmakeし./main と入力すれば積分が始まる．出力される各データファイル名と切断波数などの情報が最初に標準出力され，その後現在計算中のステップを次々標準出力する．DAYSTPで定めたステップごと(つまり，計算日数で数えて１日ごと)に各変数についてファイルの出力が行われる．よって，出力ファイル数は$3\times$DAY個になるはずである．
+\subsection{図示}
+図示のためにpy/plot$\_$main.pyが用意されている．これを使う場合matplotlibとnumpyが別途必要である．また，図示用のカラーマップとして同ディレクトリ内にcolormap.txtが入っている．これは，Additional colormaps for DCL(https://www.gfd-dennou.org/arch/koshiro/comp/dcl/clrmap/)のcolormap$\_$67から作成した．
+\section{今後の修正予定}
+\begin{itemize}
+\item このマニュアルを詳しくかく，
+\item 時定数を分離して設定しやすいようにしておく．
+\item 各モジュールを別ファイルにする．コンパイラ依存性など確認できてないところをチェック．
+\item 解析などで便利なようにnamelistを作成してパラメタを一括で管理できるようにする．
+\item RHSの高速化，計算のホットスポットなので優先，openMPを非線形項に適用する．
+\end{itemize}
+\end{document} 
